@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { loginUser } from '@/lib/dataService';
 import { UserPlus, Eye, EyeOff } from 'lucide-react';
 
 interface User {
@@ -55,39 +56,17 @@ export default function Login() {
     }
 
     try {
-      // Check registered users
-      const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
-      const registeredUser = registeredUsers.find((u: RegisteredUser) => u.nip === userForm.nip);
-
-      if (registeredUser) {
-        // Verify password
-        if (registeredUser.password !== userForm.password) {
-          toast.error('Password salah! Silakan coba lagi.');
-          setIsLoading(false);
-          return;
-        }
-
-        // Create user session with registered data
-        const user: User = {
-          id: registeredUser.id,
-          name: registeredUser.name,
-          nip: registeredUser.nip,
-          division: registeredUser.division,
-          role: 'user'
-        };
-
-        localStorage.setItem('currentUser', JSON.stringify(user));
-        toast.success(`🎉 Selamat datang kembali, ${registeredUser.name}!`);
-        
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 1000);
+      // Menggunakan loginUser dari dataService.ts dengan parameter terpisah
+      const res = await loginUser(userForm.nip, userForm.password);
+      if (!res.ok || !res.data) {
+        toast.error(res.error || 'Gagal login');
       } else {
-        toast.error('NIP tidak terdaftar! Silakan daftar terlebih dahulu atau periksa kembali NIP Anda.', {
-          description: 'Klik "Belum punya akun? Daftar di sini" untuk membuat akun baru.'
-        });
+        toast.success(`🎉 Selamat datang kembali, ${res.data.name}!`);
+        // Pastikan currentUser sudah disimpan di localStorage oleh fungsi loginUser
+        setTimeout(() => navigate('/dashboard'), 800);
       }
     } catch (error) {
+      console.error('Login error:', error);
       toast.error('Terjadi kesalahan saat login. Silakan coba lagi.');
     }
 
@@ -98,7 +77,7 @@ export default function Login() {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simple admin authentication (in real app, this would be validated against database)
+  // Simple admin authentication (sementara; bisa dipindah ke Supabase role / RLS)
     if (adminForm.username === 'admin' && adminForm.password === 'admin123') {
       const admin: User = {
         id: 'admin_1',

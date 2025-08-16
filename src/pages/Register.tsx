@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { registerUser } from '@/lib/dataService';
 import { ArrowLeft, UserPlus, Eye, EyeOff } from 'lucide-react';
 
 interface RegisteredUser {
@@ -56,39 +57,22 @@ export default function Register() {
     }
 
     try {
-      // Check if user already exists
-      const existingUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
-      const userExists = existingUsers.find((user: RegisteredUser) => user.nip === registerForm.nip);
-      
-      if (userExists) {
-        toast.error('NIP sudah terdaftar! Silakan gunakan NIP yang berbeda.');
-        setIsLoading(false);
-        return;
-      }
-
-      // Create new user (in real app, password should be hashed)
-      const newUser: RegisteredUser = {
-        id: `user_${registerForm.nip}_${Date.now()}`,
+      const res = await registerUser({
         name: registerForm.name,
         nip: registerForm.nip,
         division: registerForm.division,
         email: registerForm.email,
         phone: registerForm.phone,
-        password: registerForm.password, // In production, hash this!
-        createdAt: new Date().toISOString()
-      };
-
-      // Save to localStorage
-      const updatedUsers = [...existingUsers, newUser];
-      localStorage.setItem('registeredUsers', JSON.stringify(updatedUsers));
-
+        password: registerForm.password
+      });
+      if (!res.ok) {
+        toast.error(res.error || 'Gagal mendaftar');
+        setIsLoading(false);
+        return;
+      }
       toast.success('🎉 Pendaftaran berhasil! Silakan login dengan NIP dan password Anda.');
-      
-      setTimeout(() => {
-        navigate('/login');
-      }, 1500);
-
-    } catch (error) {
+      setTimeout(() => navigate('/login'), 1200);
+    } catch {
       toast.error('Terjadi kesalahan saat mendaftar. Silakan coba lagi.');
     }
 

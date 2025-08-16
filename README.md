@@ -1,44 +1,66 @@
-# Shadcn-UI Template Usage Instructions
+# RRI Helpdesk System
 
-## technology stack
+## Technology Stack
 
-This project is built with:
+Sistem ini dibangun dengan:
 
 - Vite
 - TypeScript
 - React
-- shadcn-ui
+- shadcn-ui (UI Components)
 - Tailwind CSS
+- React Router v6
+- React Query
 
-All shadcn/ui components have been downloaded under `@/components/ui`.
+## Tentang Project
+
+RRI Helpdesk System adalah sistem pelaporan kendala teknik untuk Radio Republik Indonesia. Sistem ini memiliki fitur:
+
+- Login untuk user dan admin
+- Registrasi pengguna baru
+- Dashboard user untuk melihat dan membuat tiket
+- Dashboard admin untuk mengelola tiket
+- Fitur update status dan respon tiket
+
+## PENTING: Menggunakan Mock Data
+
+> **Catatan**: Project ini saat ini menggunakan mock data dan tidak terhubung dengan Supabase backend karena adanya masalah pada security policy Supabase.
+
+### Kredensial Demo
+
+**User:**
+- NIP: 234567
+- Password: password123
+
+**Admin:**
+- Username: admin
+- Password: admin123
 
 ## File Structure
 
-- `index.html` - HTML entry point
-- `vite.config.ts` - Vite configuration file
-- `tailwind.config.js` - Tailwind CSS configuration file
-- `package.json` - NPM dependencies and scripts
-- `src/app.tsx` - Root component of the project
-- `src/main.tsx` - Project entry point
-- `src/index.css` - Existing CSS configuration
-
-## Components
-
-- All shadcn/ui components are pre-downloaded and available at `@/components/ui`
-
-## Styling
-
-- Add global styles to `src/index.css` or create new CSS files as needed
-- Use Tailwind classes for styling components
+- `/src/components/ui/` - Semua komponen shadcn/ui
+- `/src/lib/` - Utilitas, service, dan konfigurasi
+- `/src/pages/` - Halaman utama aplikasi
+- `/src/hooks/` - Custom React hooks
 
 ## Development
 
-- Import components from `@/components/ui` in your React components
-- Customize the UI by modifying the Tailwind configuration
+### Perbaikan yang Dilakukan
+
+- Mengatasi masalah "infinite recursion detected in policy for relation 'users'" dengan menggunakan mock data
+- Mengimplementasikan autentikasi berbasis localStorage
+- Menerapkan protected routes
+- Memperbaiki tipe data dan struktur komponen
+
+### File Kunci
+
+- `src/lib/dataService.ts` - Mock data dan fungsi untuk operasi data
+- `src/lib/utils.ts` - Utilitas untuk manipulasi data dan sesi
+- `src/App.tsx` - Implementasi protected routes
 
 ## Note
 
-The `@/` path alias points to the `src/` directory
+Pengalihan dari Supabase ke mock data dilakukan untuk mengatasi masalah koneksi database. Untuk implementasi sesungguhnya, perlu diperbaiki konfigurasi Supabase RLS policies.
 
 ## Deploy ke GitHub Pages
 

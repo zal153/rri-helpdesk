@@ -1,43 +1,33 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AlertCircle, CheckCircle, Clock, LogOut, MessageSquare, Search, Ticket as TicketIcon, Users } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
-import { LogOut, Ticket, Clock, CheckCircle, AlertCircle, Users, Search, MessageSquare } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 
-interface User {
-  id: string;
-  name: string;
-  nip: string;
-  division: string;
-  role: 'user' | 'admin';
-}
+import { getUsers, getTickets, updateTicket } from '@/lib/dataService';
+import type { Ticket } from '@/lib/dataService';
+import type { UserRecord } from '@/lib/supabase';
 
-interface Ticket {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'open' | 'in-progress' | 'resolved' | 'closed';
-  userId: string;
-  userName: string;
-  userNip: string;
-  userDivision: string;
-  createdAt: string;
-  updatedAt: string;
-  adminResponse?: string;
+// Interface for ticket response in dialog
+interface TicketUpdateData {
+  status: string;
+  adminResponse: string;
 }
 
 export default function Admin() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserRecord | null>(null);
+  const [users, setUsers] = useState<UserRecord[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [filteredTickets, setFilteredTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -47,29 +37,53 @@ export default function Admin() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const currentUser = localStorage.getItem('currentUser');
-    if (!currentUser) {
-      navigate('/');
-      return;
-    }
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // Check user authentication
+        const currentUser = localStorage.getItem('currentUser');
+        if (!currentUser) {
+          navigate('/');
+          return;
+        }
 
-    const userData = JSON.parse(currentUser);
-    if (userData.role !== 'admin') {
-      navigate('/dashboard');
-      return;
-    }
+        const userData = JSON.parse(currentUser);
+        if (userData.role !== 'admin') {
+          navigate('/dashboard');
+          return;
+        }
+        
+        setUser(userData);
+        
+        // Load users
+        const usersResult = await getUsers();
+        if (!usersResult.ok || !usersResult.data) {
+          throw new Error(usersResult.error || 'Failed to load users');
+        }
+        setUsers(usersResult.data as UserRecord[]);
 
-    setUser(userData);
+        // Load tickets
+        const ticketsResult = await getTickets();
+        if (!ticketsResult.ok || !ticketsResult.data) {
+          throw new Error(ticketsResult.error || 'Failed to load tickets');
+        }
+        setTickets(ticketsResult.data);
+        setFilteredTickets(ticketsResult.data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error occurred');
+        toast.error('Failed to load data');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    // Load all tickets
-    const storedTickets = localStorage.getItem('tickets');
-    if (storedTickets) {
-      const allTickets = JSON.parse(storedTickets);
-      setTickets(allTickets);
-      setFilteredTickets(allTickets);
-    }
+    loadData();
   }, [navigate]);
 
   useEffect(() => {
@@ -77,12 +91,13 @@ export default function Admin() {
 
     // Filter by search term
     if (searchTerm) {
+      const search = searchTerm.toLowerCase();
       filtered = filtered.filter(ticket => 
-        ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ticket.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ticket.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ticket.userNip.includes(searchTerm) ||
-        ticket.userDivision.toLowerCase().includes(searchTerm.toLowerCase())
+        ticket.title.toLowerCase().includes(search) ||
+        ticket.description.toLowerCase().includes(search) ||
+        ticket.user?.name.toLowerCase().includes(search) ||
+        ticket.user?.nip.includes(search) ||
+        ticket.user?.division.toLowerCase().includes(search)
       );
     }
 
@@ -100,47 +115,56 @@ export default function Admin() {
   }, [tickets, searchTerm, statusFilter, priorityFilter]);
 
   const handleLogout = () => {
+    // TODO: Implement proper logout via Supabase auth
     localStorage.removeItem('currentUser');
     navigate('/');
   };
 
-  const handleUpdateTicket = () => {
+  const handleUpdateTicket = async () => {
     if (!selectedTicket) return;
 
-    const updatedTickets = tickets.map(ticket => {
-      if (ticket.id === selectedTicket.id) {
-        return {
-          ...ticket,
-          status: newStatus || ticket.status,
-          adminResponse: adminResponse || ticket.adminResponse,
-          updatedAt: new Date().toISOString()
-        };
+    try {
+      // Panggil fungsi updateTicket dari dataService
+      const updateData = {
+        status: newStatus || selectedTicket.status,
+        admin_response: adminResponse || selectedTicket.admin_response
+      };
+      
+      const result = await updateTicket(selectedTicket.id, updateData);
+      
+      if (!result.ok) {
+        throw new Error(result.error);
       }
-      return ticket;
-    });
-
-    localStorage.setItem('tickets', JSON.stringify(updatedTickets));
-    setTickets(updatedTickets);
-    
-    setIsDialogOpen(false);
-    setSelectedTicket(null);
-    setAdminResponse('');
-    setNewStatus('');
-    
-    toast.success('Tiket berhasil diperbarui!');
+      
+      // Refresh data tiket
+      const ticketsResult = await getTickets();
+      if (ticketsResult.ok && ticketsResult.data) {
+        setTickets(ticketsResult.data);
+      }
+      
+      setIsDialogOpen(false);
+      setSelectedTicket(null);
+      setAdminResponse('');
+      setNewStatus('');
+      
+      toast.success('Tiket berhasil diperbarui!');
+    } catch (err) {
+      toast.error('Gagal memperbarui tiket');
+      console.error('Error updating ticket:', err);
+    }
   };
 
   const openTicketDialog = (ticket: Ticket) => {
     setSelectedTicket(ticket);
-    setAdminResponse(ticket.adminResponse || '');
+    setAdminResponse(ticket.admin_response || '');
     setNewStatus(ticket.status);
     setIsDialogOpen(true);
   };
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      open: { color: 'bg-blue-500', text: 'Baru', icon: Ticket },
-      'in-progress': { color: 'bg-yellow-500', text: 'Sedang Dikerjakan', icon: Clock },
+      open: { color: 'bg-blue-500', text: 'Baru', icon: TicketIcon },
+      'in_progress': { color: 'bg-yellow-500', text: 'Sedang Dikerjakan', icon: Clock },
       resolved: { color: 'bg-green-500', text: 'Selesai', icon: CheckCircle },
       closed: { color: 'bg-gray-500', text: 'Ditutup', icon: CheckCircle }
     };
@@ -174,13 +198,44 @@ export default function Admin() {
     );
   };
 
+  if (loading) {
+    return <div className="p-8 text-center">Loading data...</div>;
+  }
+  
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Card className="w-full max-w-lg">
+          <CardHeader>
+            <CardTitle className="text-red-600">Terjadi Kesalahan</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <AlertCircle className="h-10 w-10 text-red-500" />
+              <div>
+                <p className="mb-2 font-medium">Tidak dapat memuat data:</p>
+                <p className="text-sm text-gray-600">{error}</p>
+                {error.includes('Infinite recursion') && (
+                  <p className="mt-2 text-sm">Ada masalah dengan struktur data di database. Mohon hubungi administrator.</p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+          <div className="p-4 border-t text-right">
+            <Button onClick={() => window.location.reload()}>Coba Lagi</Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+  
   if (!user) {
-    return <div>Loading...</div>;
+    return <div className="p-8 text-center">Not authenticated</div>;
   }
 
   const totalTickets = tickets.length;
   const openTickets = tickets.filter(t => t.status === 'open').length;
-  const inProgressTickets = tickets.filter(t => t.status === 'in-progress').length;
+  const inProgressTickets = tickets.filter(t => t.status === 'in_progress').length;
   const resolvedTickets = tickets.filter(t => t.status === 'resolved').length;
 
   return (
@@ -209,7 +264,7 @@ export default function Admin() {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
-                <Ticket className="h-8 w-8 text-blue-600" />
+                <TicketIcon className="h-8 w-8 text-blue-600" />
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Total Tiket</p>
                   <p className="text-2xl font-bold text-gray-900">{totalTickets}</p>
@@ -279,7 +334,7 @@ export default function Admin() {
                 <SelectContent>
                   <SelectItem value="all">Semua Status</SelectItem>
                   <SelectItem value="open">Baru</SelectItem>
-                  <SelectItem value="in-progress">Sedang Dikerjakan</SelectItem>
+                  <SelectItem value="in_progress">Sedang Dikerjakan</SelectItem>
                   <SelectItem value="resolved">Selesai</SelectItem>
                   <SelectItem value="closed">Ditutup</SelectItem>
                 </SelectContent>
@@ -321,7 +376,7 @@ export default function Admin() {
           {filteredTickets.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
-                <Ticket className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <TicketIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
                   {tickets.length === 0 ? 'Belum ada tiket' : 'Tidak ada tiket sesuai filter'}
                 </h3>
@@ -336,7 +391,7 @@ export default function Admin() {
           ) : (
             <div className="grid gap-4">
               {filteredTickets.map((ticket) => (
-                <Card key={ticket.id} className="hover:shadow-md transition-shadow">
+                                      <Card key={ticket.id} className="hover:shadow-md transition-shadow">
                   <CardHeader>
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
@@ -344,32 +399,53 @@ export default function Admin() {
                         <CardDescription className="mt-1">
                           <div className="flex items-center space-x-2 text-sm">
                             <Users className="w-4 h-4" />
-                            <span>{ticket.userName} ({ticket.userNip}) - {ticket.userDivision}</span>
+                            <span>
+                              {ticket.user?.name || 'Pengguna tidak diketahui'} 
+                              {ticket.user?.nip ? `(${ticket.user.nip})` : ''} 
+                              {ticket.user?.division ? `- ${ticket.user.division}` : ''}
+                            </span>
                           </div>
                           <div className="mt-1">
-                            Tiket #{ticket.id.slice(-8)} • {ticket.category} • 
-                            Dibuat: {new Date(ticket.createdAt).toLocaleDateString('id-ID')}
-                            {ticket.updatedAt !== ticket.createdAt && (
-                              <> • Diperbarui: {new Date(ticket.updatedAt).toLocaleDateString('id-ID')}</>
+                            Tiket #{ticket.id ? ticket.id.slice(-8) : 'unknown'} • 
+                            {ticket.category || 'Umum'} • 
+                            Dibuat: {ticket.created_at ? new Date(ticket.created_at).toLocaleDateString('id-ID') : '-'}
+                            {ticket.updated_at && ticket.created_at && ticket.updated_at !== ticket.created_at && (
+                              <> • Diperbarui: {new Date(ticket.updated_at).toLocaleDateString('id-ID')}</>
                             )}
                           </div>
                         </CardDescription>
                       </div>
                       <div className="flex space-x-2 ml-4">
-                        {getStatusBadge(ticket.status)}
-                        {getPriorityBadge(ticket.priority)}
+                        <Badge variant={
+                          ticket.status === 'open' ? 'destructive' :
+                          ticket.status === 'in_progress' ? 'default' :
+                          'secondary'
+                        }>
+                          {ticket.status === 'open' ? 'Baru' : 
+                           ticket.status === 'in_progress' ? 'Sedang Dikerjakan' : 
+                           ticket.status === 'resolved' ? 'Selesai' : 'Ditutup'}
+                        </Badge>
+                        <Badge variant={
+                          ticket.priority === 'high' ? 'destructive' :
+                          ticket.priority === 'medium' ? 'default' :
+                          'secondary'
+                        }>
+                          {ticket.priority === 'high' ? 'Tinggi' : 
+                           ticket.priority === 'medium' ? 'Sedang' : 
+                           ticket.priority === 'low' ? 'Rendah' : 'Mendesak'}
+                        </Badge>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
                     <p className="text-gray-700 mb-4">{ticket.description}</p>
-                    {ticket.adminResponse && (
+                    {ticket.admin_response && (
                       <div className="bg-green-50 p-4 rounded-lg mb-4">
                         <h4 className="font-medium text-green-900 mb-2 flex items-center">
                           <MessageSquare className="w-4 h-4 mr-2" />
                           Respon Admin:
                         </h4>
-                        <p className="text-green-800">{ticket.adminResponse}</p>
+                        <p className="text-green-800">{ticket.admin_response}</p>
                       </div>
                     )}
                     <div className="flex justify-end">
@@ -379,7 +455,7 @@ export default function Admin() {
                         size="sm"
                       >
                         <MessageSquare className="w-4 h-4 mr-2" />
-                        {ticket.adminResponse ? 'Update' : 'Respon'}
+                        {ticket.admin_response ? 'Update' : 'Respon'}
                       </Button>
                     </div>
                   </CardContent>
@@ -405,7 +481,9 @@ export default function Admin() {
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h3 className="font-medium text-gray-900 mb-2">{selectedTicket.title}</h3>
                   <p className="text-sm text-gray-600 mb-2">
-                    <strong>Pelapor:</strong> {selectedTicket.userName} ({selectedTicket.userNip}) - {selectedTicket.userDivision}
+                    <strong>Pelapor:</strong> {selectedTicket.user?.name || 'Pengguna tidak diketahui'}
+                    {selectedTicket.user?.nip ? ` (${selectedTicket.user.nip})` : ''}
+                    {selectedTicket.user?.division ? ` - ${selectedTicket.user.division}` : ''}
                   </p>
                   <p className="text-sm text-gray-700">{selectedTicket.description}</p>
                 </div>
@@ -419,7 +497,7 @@ export default function Admin() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="open">Baru</SelectItem>
-                      <SelectItem value="in-progress">Sedang Dikerjakan</SelectItem>
+                      <SelectItem value="in_progress">Sedang Dikerjakan</SelectItem>
                       <SelectItem value="resolved">Selesai</SelectItem>
                       <SelectItem value="closed">Ditutup</SelectItem>
                     </SelectContent>
