@@ -40,6 +40,18 @@ All shadcn/ui components have been downloaded under `@/components/ui`.
 
 The `@/` path alias points to the `src/` directory
 
+## Deploy ke GitHub Pages
+
+1. Pastikan repo sudah ada di GitHub (branch `main`).
+2. File workflow sudah disediakan di `.github/workflows/deploy.yml`.
+3. Masuk ke Settings → Pages → pilih Source: `GitHub Actions` (kalau belum otomatis).
+4. Setiap push ke `main` akan build dan deploy ke Pages.
+5. URL akses: `https://<username>.github.io/rri-helpdesk/` (ganti `<username>` sesuai akun).
+
+Jika nama repo berbeda, ubah properti `base` di `vite.config.ts` menyesuaikan: `base: '/nama-repo/'`.
+
+Custom domain: tambahkan file `public/CNAME` lalu isi domain Anda, commit, dan atur DNS (A / CNAME) sesuai dokumentasi GitHub Pages.
+
 # Commands
 
 **Install Dependencies**
