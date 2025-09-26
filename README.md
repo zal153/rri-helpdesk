@@ -1,140 +1,220 @@
-# RRI Helpdesk System
+# 🎧 RRI Helpdesk System
 
-## Technology Stack
+Sistem Helpdesk untuk Radio Republik Indonesia (RRI) - Aplikasi untuk mengelola tiket kendala teknik dan pelaporan masalah.
 
-Sistem ini dibangun dengan:
+## 🚀 Fitur Utama
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui (UI Components)
-- Tailwind CSS
-- React Router v6
-- React Query
+- **Dashboard User**: Membuat dan melacak tiket kendala teknik
+- **Dashboard Admin**: Mengelola semua tiket dan memberikan response
+- **Real-time Updates**: Sinkronisasi data menggunakan Supabase
+- **Role-based Access**: Akses berbeda untuk user dan admin
+- **Responsive Design**: Tampilan yang adaptif untuk berbagai perangkat
 
-## Tentang Project
+## 🛠️ Tech Stack
 
-RRI Helpdesk System adalah sistem pelaporan kendala teknik untuk Radio Republik Indonesia. Sistem ini memiliki fitur:
+- **Frontend**: React + TypeScript + Vite
+- **UI Framework**: Tailwind CSS + shadcn/ui
+- **Database**: Supabase (PostgreSQL)
+- **Routing**: React Router
+- **State Management**: React Hooks
+- **Notifications**: Sonner Toast
 
-- Login untuk user dan admin
-- Registrasi pengguna baru
-- Dashboard user untuk melihat dan membuat tiket
-- Dashboard admin untuk mengelola tiket
-- Fitur update status dan respon tiket
+## ⚙️ Setup & Installation
 
-## PENTING: Menggunakan Mock Data
-
-> **Catatan**: Project ini saat ini menggunakan mock data dan tidak terhubung dengan Supabase backend karena adanya masalah pada security policy Supabase.
-
-### Kredensial Demo
-
-**User:**
-- NIP: 234567
-- Password: password123
-
-**Admin:**
-- Username: admin
-- Password: admin123
-
-## Konfigurasi Database
-
-Aplikasi ini menggunakan Supabase sebagai database dan autentikasi. Untuk mengkonfigurasi koneksi database:
-
-1. Buat file `.env.local` di root project dengan isi:
-   ```
-   VITE_SUPABASE_URL=https://your-supabase-project-url.supabase.co
-   VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-   ```
-
-2. Ganti nilai-nilai tersebut dengan URL dan kunci anonim dari project Supabase Anda sendiri.
-
-## Setting Supabase
-
-Untuk mengatur database Supabase yang diperlukan:
-
-1. Buat akun di [Supabase](https://supabase.com) jika belum punya
-2. Buat project baru di Supabase
-3. Salin URL dan Anon Key dari halaman Settings > API di dashboard Supabase
-4. Buat tabel-tabel berikut di database Supabase:
-
-### Tabel `users`
-
-```sql
-create table public.users (
-  id uuid primary key default uuid_generate_v4(),
-  nip text unique not null,
-  name text not null,
-  division text,
-  email text unique,
-  phone text,
-  role text default 'user' not null,
-  created_at timestamp with time zone default now() not null
-);
-
--- Pastikan Row Level Security (RLS) diaktifkan
-alter table public.users enable row level security;
-
--- Buat policy untuk mengakses data users
-create policy "Allow public read access" 
-on public.users for select 
-using (true);
-
-create policy "Allow individual update" 
-on public.users for update 
-using (auth.uid() = id);
+### 1. Prerequisites
+```bash
+- Node.js (v18+)
+- npm atau pnpm
+- Account Supabase
 ```
 
-### Tabel `tickets`
+### 2. Clone Repository
+```bash
+git clone https://github.com/zal153/rri-helpdesk.git
+cd rri-helpdesk
+```
+
+### 3. Install Dependencies
+```bash
+npm install
+# atau
+pnpm install
+```
+
+### 4. Environment Setup
+Buat file `.env.local` di root project:
+```bash
+VITE_SUPABASE_URL="https://your-project.supabase.co"
+VITE_SUPABASE_ANON_KEY="your-anon-key"
+```
+
+### 5. Database Setup
+1. Buka [Supabase Dashboard](https://supabase.com/dashboard)
+2. Pilih project Anda
+3. Buka **SQL Editor**
+4. Copy paste dan jalankan script berikut:
 
 ```sql
-create table public.tickets (
-  id uuid primary key default uuid_generate_v4(),
-  title text not null,
-  description text not null,
-  category text not null,
-  priority text not null,
-  status text default 'open' not null,
-  user_id uuid references public.users(id) not null,
+-- DISABLE RLS sementara untuk testing
+ALTER TABLE IF EXISTS public.users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.tickets DISABLE ROW LEVEL SECURITY;
+
+-- USERS TABLE
+CREATE TABLE IF NOT EXISTS public.users (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  nip varchar(50) UNIQUE NOT NULL,
+  name varchar(255) NOT NULL,
+  division varchar(255) NOT NULL,
+  email varchar(255),
+  phone varchar(50),
+  password varchar(255) NOT NULL,
+  role varchar(20) NOT NULL DEFAULT 'user',
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+-- TICKETS TABLE
+CREATE TABLE IF NOT EXISTS public.tickets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title varchar(500) NOT NULL,
+  description text NOT NULL,
+  category varchar(100) NOT NULL,
+  priority varchar(20) NOT NULL,
+  status varchar(20) NOT NULL DEFAULT 'open',
+  user_id uuid REFERENCES public.users(id) ON DELETE SET NULL,
   admin_response text,
-  created_at timestamp with time zone default now() not null,
-  updated_at timestamp with time zone default now() not null
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
 );
 
--- Aktifkan RLS
-alter table public.tickets enable row level security;
+-- Insert sample data
+INSERT INTO public.users (nip, name, division, email, phone, password, role)
+VALUES
+  ('123456', 'Admin Utama', 'IT', 'admin@rri.co.id', '08123456789', '123456', 'admin'),
+  ('234567', 'Teknisi Studio', 'Teknik', 'teknisi@rri.co.id', '08234567890', '234567', 'user'),
+  ('345678', 'Reporter Berita', 'Pemberitaan', 'reporter@rri.co.id', '08345678901', '345678', 'user'),
+  ('456789', 'Penyiar Senior', 'Siaran', 'penyiar@rri.co.id', '08456789012', '456789', 'user')
+ON CONFLICT (nip) DO NOTHING;
 
--- Buat policy untuk tickets
-create policy "Users can view their own tickets" 
-on public.tickets for select 
-using (auth.uid() = user_id);
-
-create policy "Users can insert their own tickets" 
-on public.tickets for insert 
-with check (auth.uid() = user_id);
-
-create policy "Admin can view all tickets" 
-on public.tickets for select 
-using ((select role from public.users where id = auth.uid()) = 'admin');
-
-create policy "Admin can update all tickets" 
-on public.tickets for update 
-using ((select role from public.users where id = auth.uid()) = 'admin');
+-- Insert sample tickets
+INSERT INTO public.tickets (title, description, category, priority, status, user_id, admin_response)
+VALUES
+  (
+    'Mikrophone Studio 3 Bermasalah',
+    'Mikrophone di studio 3 menghasilkan suara mendengung dan tidak jernih saat digunakan untuk siaran.',
+    'hardware',
+    'high',
+    'open',
+    (SELECT id FROM public.users WHERE nip = '234567'),
+    NULL
+  ),
+  (
+    'Komputer Editing Lambat',
+    'PC untuk editing audio di ruang produksi sangat lambat, menghambat proses editing program.',
+    'software',
+    'medium',
+    'in_progress',
+    (SELECT id FROM public.users WHERE nip = '345678'),
+    'Sedang dalam pengecekan hardware, kemungkinan perlu upgrade RAM.'
+  )
+ON CONFLICT DO NOTHING;
 ```
 
-## Konfigurasi Autentikasi
+### 6. Run Application
+```bash
+npm run dev
+# atau
+npm dev
+```
 
-1. Di dashboard Supabase, pergi ke Authentication > Settings
-2. Pastikan Email Auth Provider diaktifkan
-3. Konfigurasi SMTP jika ingin menggunakan fitur verifikasi email
+Aplikasi akan berjalan di: `http://localhost:5173`
 
-Untuk autentikasi password sederhana:
+## 🔐 Default Credentials
 
-1. Di Authentication > Settings > Email, matikan "Confirm email" jika Anda tidak memerlukan verifikasi email untuk testing
-2. Untuk lingkungan produksi, sangat disarankan untuk mengaktifkan verifikasi email
+### Admin Access
+- **NIP**: `123456`
+- **Password**: `123456` atau `password123`
+- **URL**: `http://localhost:5173/admin`
 
-## Menggunakan Mock Data vs Supabase
+### User Access
+- **NIP**: `234567` (Teknisi Studio)
+- **Password**: `234567` atau `password123`
+- **NIP**: `345678` (Reporter Berita)  
+- **Password**: `345678` atau `password123`
+- **NIP**: `456789` (Penyiar Senior)
+- **Password**: `456789` atau `password123`
+- **URL**: `http://localhost:5173/dashboard`
 
-Project ini mendukung dua mode operasi:
+## 🎯 Cara Penggunaan
+
+### Sebagai User:
+1. Login dengan credentials user
+2. Klik "Buat Tiket Baru" di dashboard
+3. Isi form dengan detail masalah
+4. Submit dan tunggu response dari admin
+5. Cek status tiket di halaman "Tiket Saya"
+
+### Sebagai Admin:
+1. Login dengan credentials admin
+2. Lihat semua tiket di dashboard admin
+3. Filter tiket berdasarkan status/prioritas
+4. Klik tiket untuk memberikan response
+5. Update status tiket (open → in_progress → resolved)
+
+## 📊 Database Schema
+
+### Users Table
+- `id` (UUID, Primary Key)
+- `nip` (String, Unique)
+- `name` (String)
+- `division` (String) 
+- `email` (String, Optional)
+- `phone` (String, Optional)
+- `password` (String)
+- `role` (admin/user)
+- `created_at`, `updated_at`
+
+### Tickets Table
+- `id` (UUID, Primary Key)
+- `title` (String)
+- `description` (Text)
+- `category` (hardware/software/network/etc)
+- `priority` (low/medium/high/urgent)
+- `status` (open/in_progress/resolved/closed)
+- `user_id` (Foreign Key to Users)
+- `admin_response` (Text, Optional)
+- `created_at`, `updated_at`
+
+## 🚨 Troubleshooting
+
+### "Supabase client not configured"
+1. Periksa file `.env.local` sudah dibuat
+2. Pastikan VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY benar
+3. Restart aplikasi dengan `npm run dev`
+
+### Login gagal
+1. Pastikan SQL script sudah dijalankan di Supabase
+2. Cek credentials menggunakan NIP, bukan username
+3. Periksa console browser untuk error details
+
+### Data tidak sinkron
+1. Pastikan RLS disabled untuk testing
+2. Cek koneksi internet
+3. Verifikasi Supabase project status
+
+## 📞 Support
+
+Untuk pertanyaan atau bantuan:
+- **Email**: support@rri.co.id
+- **GitHub Issues**: [Create Issue](https://github.com/zal153/rri-helpdesk/issues)
+
+## 📄 License
+
+MIT License - Lihat file `LICENSE` untuk detail lengkap.
+
+---
+
+**Dibuat dengan ❤️ untuk Radio Republik Indonesia**
 
 ### Mode Mock Data (untuk development cepat)
 
@@ -217,17 +297,17 @@ Saat men-deploy aplikasi:
 **Install Dependencies**
 
 ```shell
-pnpm i
+npm i
 ```
 
 **Start Preview**
 
 ```shell
-pnpm run dev
+npm run dev
 ```
 
 **To build**
 
 ```shell
-pnpm run build
+npm run build
 ```

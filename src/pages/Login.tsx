@@ -228,8 +228,8 @@ export default function Login() {
                   </div>
                   <div className="text-sm text-slate-600 bg-slate-50/80 p-4 rounded-xl border border-slate-200">
                     <strong className="text-slate-800">🔑 Demo Credentials:</strong><br />
-                    <span className="text-blue-600 font-mono">Username: admin</span><br />
-                    <span className="text-blue-600 font-mono">Password: admin123</span>
+                    <span className="text-blue-600 font-mono">Username: 123456</span><br />
+                    <span className="text-blue-600 font-mono">Password: 123456</span>
                   </div>
                   <Button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-[1.02]" disabled={isLoading}>
                     {isLoading ? '⏳ Loading...' : '🔐 Login Admin'}

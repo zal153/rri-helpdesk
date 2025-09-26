@@ -32,8 +32,6 @@ export interface Ticket {
 // Fungsi untuk mendapatkan daftar pengguna
 export async function getUsers() {
   try {
-    console.log('👥 Getting users from Supabase...');
-    
     if (!supabase) return { ok: false, error: 'Supabase client not configured' };
     
     const { data, error } = await supabase
@@ -42,14 +40,11 @@ export async function getUsers() {
       .order('created_at', { ascending: false });
       
     if (error) {
-      console.error('❌ Error fetching users:', error);
       throw error;
     }
     
-    console.log('✅ Users fetched from Supabase:', data);
     return { ok: true, data };
   } catch (error) {
-    console.error('Error fetching users:', error);
     return { ok: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
@@ -57,8 +52,6 @@ export async function getUsers() {
 // Fungsi untuk mendapatkan daftar tiket
 export async function getTickets() {
   try {
-    console.log('🎫 Getting tickets from Supabase...');
-    
     if (!supabase) return { ok: false, error: 'Supabase client not configured' };
     
     const { data, error } = await supabase
@@ -70,14 +63,11 @@ export async function getTickets() {
       .order('created_at', { ascending: false });
       
     if (error) {
-      console.error('❌ Error fetching tickets:', error);
       throw error;
     }
     
-    console.log('✅ Tickets fetched from Supabase:', data);
     return { ok: true, data };
   } catch (error) {
-    console.error('Error fetching tickets:', error);
     return { ok: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
@@ -85,8 +75,6 @@ export async function getTickets() {
 // Fungsi untuk memperbarui tiket
 export async function updateTicket(ticketId: string, data: { status?: string; admin_response?: string }) {
   try {
-    console.log('📝 Updating ticket in Supabase:', ticketId, data);
-    
     if (!supabase) return { ok: false, error: 'Supabase client not configured' };
     
     const { data: updatedTicket, error } = await supabase
@@ -104,14 +92,11 @@ export async function updateTicket(ticketId: string, data: { status?: string; ad
       .single();
       
     if (error) {
-      console.error('❌ Error updating ticket:', error);
       throw error;
     }
     
-    console.log('✅ Ticket updated in Supabase:', updatedTicket);
     return { ok: true, data: updatedTicket };
   } catch (error) {
-    console.error('Error updating ticket:', error);
     return { ok: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
@@ -119,8 +104,6 @@ export async function updateTicket(ticketId: string, data: { status?: string; ad
 // Fungsi untuk login user menggunakan database users
 export async function loginUser(nip: string, password: string) {
   try {
-    console.log('🔐 Attempting login for NIP:', nip);
-    
     if (!supabase) return { ok: false, error: 'Supabase client not configured' };
     
     // Cari user berdasarkan NIP
@@ -131,7 +114,6 @@ export async function loginUser(nip: string, password: string) {
       .single();
     
     if (error) {
-      console.log('❌ User not found:', error);
       return { ok: false, error: 'NIP tidak ditemukan' };
     }
     
@@ -139,13 +121,11 @@ export async function loginUser(nip: string, password: string) {
     if (password === user.nip || password === "password123") {
       // Simpan user ke localStorage untuk simulasi session
       localStorage.setItem('currentUser', JSON.stringify(user));
-      console.log('✅ Login successful:', user);
       return { ok: true, data: user };
     } else {
       return { ok: false, error: 'Password salah' };
     }
   } catch (error) {
-    console.error('Error logging in:', error);
     return { ok: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
@@ -160,8 +140,6 @@ export async function createTicket(ticketData: {
   user_id: string;
 }) {
   try {
-    console.log('➕ Creating ticket in Supabase:', ticketData);
-    
     if (!supabase) return { ok: false, error: 'Supabase client not configured' };
     
     const { data, error } = await supabase
@@ -181,14 +159,11 @@ export async function createTicket(ticketData: {
       .single();
       
     if (error) {
-      console.error('❌ Error creating ticket:', error);
       throw error;
     }
     
-    console.log('✅ Ticket created in Supabase:', data);
     return { ok: true, data };
   } catch (error) {
-    console.error('Error creating ticket:', error);
     return { ok: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
@@ -202,8 +177,6 @@ export async function registerUser(userData: {
   password: string;
 }) {
   try {
-    console.log('📝 Registering user:', userData.nip);
-    
     if (!supabase) return { ok: false, error: 'Supabase client not configured' };
     
     // Insert user baru ke database
@@ -222,17 +195,14 @@ export async function registerUser(userData: {
       .single();
       
     if (error) {
-      console.error('❌ Registration failed:', error);
       if (error.code === '23505') { // Unique constraint violation
         return { ok: false, error: 'NIP sudah terdaftar' };
       }
       throw error;
     }
     
-    console.log('✅ User registered successfully:', data);
     return { ok: true, data };
   } catch (error) {
-    console.error('Error registering user:', error);
     return { ok: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }

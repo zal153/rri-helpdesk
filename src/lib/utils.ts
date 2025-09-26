@@ -16,7 +16,6 @@ export function getCurrentUser() {
   try {
     return JSON.parse(userJson);
   } catch (e) {
-    console.error('Error parsing user data:', e);
     return null;
   }
 }

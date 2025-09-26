@@ -61,7 +61,6 @@ export default function Dashboard() {
       // Load tickets for this user from Supabase
       try {
         const { getTickets } = await import('../lib/dataService');
-        console.log('📥 User Dashboard: Loading tickets from Supabase...');
         
         const result = await getTickets();
         if (result.ok && result.data) {
@@ -84,13 +83,10 @@ export default function Dashboard() {
               adminResponse: ticket.admin_response
             }));
           
-          console.log('✅ User tickets loaded:', userTickets);
           setTickets(userTickets);
-        } else {
-          console.error('❌ Failed to load tickets:', result.error);
         }
       } catch (error) {
-        console.error('❌ Error loading tickets:', error);
+        // Silent error handling
       }
     };
 
@@ -104,12 +100,8 @@ export default function Dashboard() {
 
   const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🎯 User Dashboard: handleCreateTicket called!');
-    console.log('📋 User Dashboard: Form data:', newTicket);
-    console.log('👤 User Dashboard: Current user:', user);
     
     if (!newTicket.title || !newTicket.description || !newTicket.category) {
-      console.log('❌ User Dashboard: Validation failed - missing fields');
       toast.error('Semua field harus diisi');
       return;
     }
@@ -126,14 +118,11 @@ export default function Dashboard() {
         user_id: user!.id
       };
 
-      console.log('📤 Creating ticket via Supabase:', ticketData);
       const result = await createTicket(ticketData);
       
       if (!result.ok) {
         throw new Error(result.error);
       }
-
-      console.log('✅ Ticket created successfully:', result.data);
       
       // Update local state with the new ticket
       if (result.data) {
@@ -167,7 +156,6 @@ export default function Dashboard() {
       setIsDialogOpen(false);
       toast.success('Tiket berhasil dibuat!');
     } catch (error) {
-      console.error('❌ Error creating ticket:', error);
       toast.error('Gagal membuat tiket. Silakan coba lagi.');
     }
   };
@@ -225,45 +213,10 @@ export default function Dashboard() {
                 Selamat datang, {user.name} ({user.nip}) - {user.division}
               </p>
             </div>
-            <div className="flex gap-2">
-              <Button 
-                onClick={() => {
-                  console.log('🧪 Creating test ticket...');
-                  const testTicket: Ticket = {
-                    id: `test_${Date.now()}`,
-                    title: 'Test Ticket - Direct Create',
-                    description: 'This is a test ticket created programmatically',
-                    category: 'hardware',
-                    priority: 'medium',
-                    status: 'open',
-                    userId: user!.id,
-                    userName: user!.name,
-                    userNip: user!.nip,
-                    userDivision: user!.division,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                  };
-                  
-                  const existingTickets = JSON.parse(localStorage.getItem('tickets') || '[]');
-                  console.log('🧪 Existing tickets before test:', existingTickets);
-                  
-                  const updatedTickets = [...existingTickets, testTicket];
-                  localStorage.setItem('tickets', JSON.stringify(updatedTickets));
-                  console.log('🧪 Tickets after test save:', updatedTickets);
-                  
-                  setTickets([...tickets, testTicket]);
-                  toast.success('Test ticket created!');
-                }}
-                variant="outline" 
-                size="sm"
-              >
-                🧪 Test
-              </Button>
-              <Button onClick={handleLogout} variant="outline">
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </div>
+            <Button onClick={handleLogout} variant="outline">
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
           </div>
         </div>
       </header>
