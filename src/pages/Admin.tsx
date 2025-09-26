@@ -69,10 +69,16 @@ export default function Admin() {
         setUsers(usersResult.data as UserRecord[]);
 
         // Load tickets
+        console.log('🔄 Admin: Loading tickets...');
         const ticketsResult = await getTickets();
+        console.log('📥 Admin: Tickets result:', ticketsResult);
+        
         if (!ticketsResult.ok || !ticketsResult.data) {
+          console.error('❌ Admin: Failed to load tickets:', ticketsResult.error);
           throw new Error(ticketsResult.error || 'Failed to load tickets');
         }
+        
+        console.log('✅ Admin: Setting tickets state:', ticketsResult.data);
         setTickets(ticketsResult.data);
         setFilteredTickets(ticketsResult.data);
       } catch (err) {
@@ -118,6 +124,30 @@ export default function Admin() {
     // TODO: Implement proper logout via Supabase auth
     localStorage.removeItem('currentUser');
     navigate('/');
+  };
+
+  const refreshData = async () => {
+    console.log('🔄 Admin: Manual refresh triggered');
+    try {
+      setLoading(true);
+      // Load tickets
+      const ticketsResult = await getTickets();
+      console.log('📥 Admin: Manual refresh result:', ticketsResult);
+      
+      if (!ticketsResult.ok || !ticketsResult.data) {
+        throw new Error(ticketsResult.error || 'Failed to load tickets');
+      }
+      
+      console.log('✅ Admin: Manual refresh - setting tickets:', ticketsResult.data);
+      setTickets(ticketsResult.data);
+      setFilteredTickets(ticketsResult.data);
+      toast.success('Data berhasil direfresh!');
+    } catch (err) {
+      console.error('❌ Admin: Manual refresh failed:', err);
+      toast.error('Gagal refresh data');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpdateTicket = async () => {
@@ -250,10 +280,15 @@ export default function Admin() {
                 Kelola semua tiket kendala teknik RRI
               </p>
             </div>
-            <Button onClick={handleLogout} variant="outline">
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={refreshData} variant="outline" disabled={loading}>
+                {loading ? '⏳' : '🔄'} Refresh
+              </Button>
+              <Button onClick={handleLogout} variant="outline">
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
       </header>

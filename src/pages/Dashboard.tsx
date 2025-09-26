@@ -44,26 +44,57 @@ export default function Dashboard() {
     title: '',
     description: '',
     category: '',
-    priority: 'medium' as const
+    priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent'
   });
 
   useEffect(() => {
-    const currentUser = localStorage.getItem('currentUser');
-    if (!currentUser) {
-      navigate('/');
-      return;
-    }
+    const loadUserData = async () => {
+      const currentUser = localStorage.getItem('currentUser');
+      if (!currentUser) {
+        navigate('/');
+        return;
+      }
 
-    const userData = JSON.parse(currentUser);
-    setUser(userData);
+      const userData = JSON.parse(currentUser);
+      setUser(userData);
 
-    // Load tickets for this user
-    const storedTickets = localStorage.getItem('tickets');
-    if (storedTickets) {
-      const allTickets = JSON.parse(storedTickets);
-      const userTickets = allTickets.filter((ticket: Ticket) => ticket.userId === userData.id);
-      setTickets(userTickets);
-    }
+      // Load tickets for this user from Supabase
+      try {
+        const { getTickets } = await import('../lib/dataService');
+        console.log('📥 User Dashboard: Loading tickets from Supabase...');
+        
+        const result = await getTickets();
+        if (result.ok && result.data) {
+          // Filter tickets for current user
+          const userTickets = result.data
+            .filter(ticket => ticket.user_id === userData.id)
+            .map(ticket => ({
+              id: ticket.id,
+              title: ticket.title,
+              description: ticket.description,
+              category: ticket.category,
+              priority: ticket.priority as 'low' | 'medium' | 'high' | 'urgent',
+              status: ticket.status as 'open' | 'in-progress' | 'resolved' | 'closed',
+              userId: ticket.user_id,
+              userName: ticket.user?.name || userData.name,
+              userNip: ticket.user?.nip || userData.nip,
+              userDivision: ticket.user?.division || userData.division,
+              createdAt: ticket.created_at || '',
+              updatedAt: ticket.updated_at || '',
+              adminResponse: ticket.admin_response
+            }));
+          
+          console.log('✅ User tickets loaded:', userTickets);
+          setTickets(userTickets);
+        } else {
+          console.error('❌ Failed to load tickets:', result.error);
+        }
+      } catch (error) {
+        console.error('❌ Error loading tickets:', error);
+      }
+    };
+
+    loadUserData();
   }, [navigate]);
 
   const handleLogout = () => {
@@ -71,47 +102,74 @@ export default function Dashboard() {
     navigate('/');
   };
 
-  const handleCreateTicket = (e: React.FormEvent) => {
+  const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🎯 User Dashboard: handleCreateTicket called!');
+    console.log('📋 User Dashboard: Form data:', newTicket);
+    console.log('👤 User Dashboard: Current user:', user);
     
     if (!newTicket.title || !newTicket.description || !newTicket.category) {
+      console.log('❌ User Dashboard: Validation failed - missing fields');
       toast.error('Semua field harus diisi');
       return;
     }
 
-    const ticket: Ticket = {
-      id: `ticket_${Date.now()}`,
-      title: newTicket.title,
-      description: newTicket.description,
-      category: newTicket.category,
-      priority: newTicket.priority,
-      status: 'open',
-      userId: user!.id,
-      userName: user!.name,
-      userNip: user!.nip,
-      userDivision: user!.division,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+    try {
+      // Import createTicket function
+      const { createTicket } = await import('../lib/dataService');
+      
+      const ticketData = {
+        title: newTicket.title,
+        description: newTicket.description,
+        category: newTicket.category,
+        priority: newTicket.priority,
+        user_id: user!.id
+      };
 
-    // Save to localStorage
-    const existingTickets = JSON.parse(localStorage.getItem('tickets') || '[]');
-    const updatedTickets = [...existingTickets, ticket];
-    localStorage.setItem('tickets', JSON.stringify(updatedTickets));
+      console.log('📤 Creating ticket via Supabase:', ticketData);
+      const result = await createTicket(ticketData);
+      
+      if (!result.ok) {
+        throw new Error(result.error);
+      }
 
-    // Update local state
-    setTickets([...tickets, ticket]);
-    
-    // Reset form
-    setNewTicket({
-      title: '',
-      description: '',
-      category: '',
-      priority: 'medium'
-    });
-    
-    setIsDialogOpen(false);
-    toast.success('Tiket berhasil dibuat!');
+      console.log('✅ Ticket created successfully:', result.data);
+      
+      // Update local state with the new ticket
+      if (result.data) {
+        const newTicketForState: Ticket = {
+          id: result.data.id,
+          title: result.data.title,
+          description: result.data.description,
+          category: result.data.category,
+          priority: result.data.priority as 'low' | 'medium' | 'high' | 'urgent',
+          status: result.data.status as 'open' | 'in-progress' | 'resolved' | 'closed',
+          userId: result.data.user_id,
+          userName: result.data.user?.name || user!.name,
+          userNip: result.data.user?.nip || user!.nip,
+          userDivision: result.data.user?.division || user!.division,
+          createdAt: result.data.created_at || new Date().toISOString(),
+          updatedAt: result.data.updated_at || new Date().toISOString(),
+          adminResponse: result.data.admin_response
+        };
+        
+        setTickets([...tickets, newTicketForState]);
+      }
+      
+      // Reset form
+      setNewTicket({
+        title: '',
+        description: '',
+        category: '',
+        priority: 'medium'
+      });
+      
+      setIsDialogOpen(false);
+      toast.success('Tiket berhasil dibuat!');
+    } catch (error) {
+      console.error('❌ Error creating ticket:', error);
+      toast.error('Gagal membuat tiket. Silakan coba lagi.');
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -167,10 +225,45 @@ export default function Dashboard() {
                 Selamat datang, {user.name} ({user.nip}) - {user.division}
               </p>
             </div>
-            <Button onClick={handleLogout} variant="outline">
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => {
+                  console.log('🧪 Creating test ticket...');
+                  const testTicket: Ticket = {
+                    id: `test_${Date.now()}`,
+                    title: 'Test Ticket - Direct Create',
+                    description: 'This is a test ticket created programmatically',
+                    category: 'hardware',
+                    priority: 'medium',
+                    status: 'open',
+                    userId: user!.id,
+                    userName: user!.name,
+                    userNip: user!.nip,
+                    userDivision: user!.division,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                  };
+                  
+                  const existingTickets = JSON.parse(localStorage.getItem('tickets') || '[]');
+                  console.log('🧪 Existing tickets before test:', existingTickets);
+                  
+                  const updatedTickets = [...existingTickets, testTicket];
+                  localStorage.setItem('tickets', JSON.stringify(updatedTickets));
+                  console.log('🧪 Tickets after test save:', updatedTickets);
+                  
+                  setTickets([...tickets, testTicket]);
+                  toast.success('Test ticket created!');
+                }}
+                variant="outline" 
+                size="sm"
+              >
+                🧪 Test
+              </Button>
+              <Button onClick={handleLogout} variant="outline">
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
       </header>

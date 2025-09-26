@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // Konstanta untuk menunjukkan bahwa aplikasi menggunakan mock data
-export const USING_MOCK_DATA = true;
+export const USING_MOCK_DATA = false;
 
 // Fungsi untuk mendapatkan user dari localStorage
 export function getCurrentUser() {

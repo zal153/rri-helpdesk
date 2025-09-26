@@ -77,24 +77,31 @@ export default function Login() {
     e.preventDefault();
     setIsLoading(true);
 
-  // Simple admin authentication (sementara; bisa dipindah ke Supabase role / RLS)
-    if (adminForm.username === 'admin' && adminForm.password === 'admin123') {
-      const admin: User = {
-        id: 'admin_1',
-        name: 'Administrator',
-        nip: 'ADMIN001',
-        division: 'IT Support',
-        role: 'admin'
-      };
+    if (!adminForm.username || !adminForm.password) {
+      toast.error('Username dan Password harus diisi');
+      setIsLoading(false);
+      return;
+    }
 
-      localStorage.setItem('currentUser', JSON.stringify(admin));
-      toast.success('Login admin berhasil!');
-      
-      setTimeout(() => {
-        navigate('/admin');
-      }, 1000);
-    } else {
-      toast.error('Username atau password salah');
+    try {
+      // Menggunakan loginUser dari dataService.ts untuk admin login juga
+      const res = await loginUser(adminForm.username, adminForm.password);
+      if (!res.ok || !res.data) {
+        toast.error(res.error || 'Username atau password salah');
+      } else {
+        // Periksa apakah user yang login adalah admin
+        if (res.data.role === 'admin') {
+          toast.success(`🎉 Login admin berhasil! Selamat datang, ${res.data.name}!`);
+          setTimeout(() => navigate('/admin'), 800);
+        } else {
+          toast.error('Akses ditolak. Anda bukan administrator.');
+          // Hapus session yang sudah disimpan jika bukan admin
+          localStorage.removeItem('currentUser');
+        }
+      }
+    } catch (error) {
+      console.error('Admin login error:', error);
+      toast.error('Terjadi kesalahan saat login. Silakan coba lagi.');
     }
 
     setIsLoading(false);
